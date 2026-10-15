@@ -1,0 +1,35 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# patcher working state
+.patcher-work/
+/temp/
+/artifactory.json
+output*.apk
+output_bundle_apks/
+
+# inputs / outputs
+*.apk
+*.apkm
+*.xapk
+*.jadx
+/keystore.jks
+
+# android module build output
+smali_generator/local.properties
+smali_generator/.gradle/
+smali_generator/build/
+smali_generator/app/build/
+smali_generator/app/release/
+smali_generator/smali_generator.apk
+.idea/
+*.iml
+
+# test runner scratch
+.pytest_cache/
+
+# local notes, specs, plans
+docs/

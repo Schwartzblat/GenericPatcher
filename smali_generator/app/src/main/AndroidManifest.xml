@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- stitch MERGES this manifest into the target app's at patch time, so
+         declare components the patch adds (activity/service/receiver) and any
+         <uses-permission> here, exactly once. See references/module-ui.md.
+
+         Do NOT declare the provider that starts the patch: stitch adds that
+         itself, with the authority scoped to the target's package.
+
+         Attributes that point at this module's resources (android:label,
+         android:icon) are dropped with a warning, because the target's
+         manifest is read against the TARGET's resource table. Set them from
+         code. -->
+    <application tools:ignore="MissingApplicationIcon">
+
+        <!-- Stands in for the Play Store purchase screen, for the IAP layer.
+             Not exported: the only thing that starts it is a PendingIntent this
+             patch creates inside the target app itself. Theme.NoDisplay is a
+             platform resource, so it resolves against the target's table; a
+             theme of the module's own would not. -->
+        <activity
+            android:name=".PurchaseResultActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay" />
+
+    </application>
+
+</manifest>
