@@ -1,0 +1,76 @@
+plugins {
+    alias(libs.plugins.android.application)
+}
+
+android {
+    namespace 'com.smali_generator'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "com.smali_generator"
+        // This module is never installed on its own -- stitch injects its dex,
+        // jni libs, assets and resource table into the target APK -- so these
+        // values are cosmetic. The target app's own manifest governs at
+        // runtime, and its <uses-sdk> is never overwritten by this one.
+        minSdk 33
+        //noinspection ExpiredTargetSdkVersion
+        targetSdk 36
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            // Must stay off: stitch injects this module's dex as-is, and R8
+            // would rename the provider class the patched manifest points at.
+            minifyEnabled false
+        }
+    }
+
+    lint {
+        // Required, not a preference. Before stitch substitutes the artifactory,
+        // Class.forName() in the patches is still holding an artifactory
+        // placeholder rather than a class name. AGP's lintVital task runs as
+        // part of assembleRelease, and PrivateApiDetector tries to parse that
+        // string as a Java type and crashes the build with "Incorrect type".
+        // Linting a tree of unsubstituted placeholders is meaningless anyway.
+        //
+        // (Deliberately not spelling a placeholder out here: validate-artifactory.py
+        // scans every file under smali_generator/, this one included, and would
+        // report the example as a real unsubstituted key.)
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}
+
+dependencies {
+    implementation libs.arthooks
+    implementation libs.androidx.annotation.jvm
+
+    // JVM unit tests for the pure-Java parts of the patch. Parcel and Bundle do
+    // not exist off-device, so anything touching them is verified by the device
+    // run, not here.
+    testImplementation libs.junit
+}
+
+// Copies the built APK to <module>/smali_generator.apk, where stitch's
+// prepare_smali() expects to find it (stitch.common.SMALI_GENERATOR_OUTPUT_PATH).
+// DO NOT rename the output -- that filename is part of stitch's contract.
+tasks.whenTaskAdded { task ->
+    if (task.name == 'assembleRelease') {
+        task.doLast {
+            def apkDir = "$buildDir/outputs/apk/release"
+            def apkFile = fileTree(dir: apkDir, includes: ["*.apk"]).singleFile
+            def destinationDir = "./"
+
+            mkdir(destinationDir)
+            copy {
+                from apkFile
+                into "$destinationDir"
+            }
+            def output_apk = file("$destinationDir/${apkFile.name}")
+            output_apk.renameTo("${destinationDir}/smali_generator.apk")
+            println "APK moved to $destinationDir"
+        }
+    }
+}
