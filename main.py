@@ -7,14 +7,7 @@ from stitch.common import ExternalModule
 # Signature finders live in ./artifactory_generator/ and are registered in
 # artifactory_list below. What they block is configured in ad_catalog.py.
 from artifactory_generator.ad_inventory import AdInventoryFinder
-
-# Stitch writes this into the target's manifest as the provider's android:name.
-# It must match the class in smali_generator/app/src/main/java/com/smali_generator/.
-PROVIDER_CLASS = 'com.smali_generator.InitProviderGeneric'
-
-# The paywall module generates a class of this name from PAYWALL_PROVIDER_CLASS,
-# and stitch names it in the manifest.
-PAYWALL_PROVIDER = 'com.paywall.InitProviderPaywallGeneric'
+from constants import ARTIFACTS_ASSET, MODULE_PROVIDER, PAYWALL_PROVIDER
 
 
 def get_args():
@@ -50,7 +43,7 @@ def main():
     args = get_args()
     extra_artifacts = {artifact.split(':', 1)[0]: artifact.split(':', 1)[1] for artifact in args.extra_artifacts}
     external_modules = [
-        ExternalModule(Path(__file__).parent / './smali_generator', PROVIDER_CLASS)
+        ExternalModule(Path(__file__).parent / './smali_generator', MODULE_PROVIDER)
     ]
     if args.paywall is not None:
         extra_artifacts.setdefault('PAYWALL_PROVIDER_CLASS', PAYWALL_PROVIDER.rsplit('.', 1)[1])
@@ -67,6 +60,7 @@ def main():
             arch=args.arch,
             should_sign=args.should_sign,
             extra_artifacts=extra_artifacts,
+            artifacts_asset=ARTIFACTS_ASSET,
     ) as stitch:
         stitch.patch()
 

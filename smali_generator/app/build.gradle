@@ -47,10 +47,12 @@ dependencies {
     implementation libs.arthooks
     implementation libs.androidx.annotation.jvm
 
-    // JVM unit tests for the pure-Java parts of the patch. Parcel and Bundle do
-    // not exist off-device, so anything touching them is verified by the device
-    // run, not here.
+    // JVM unit tests for the pure-Java parts of the patch: Artifacts (the JSON
+    // reader) and AdRules (the lists it feeds). Parcel, Bundle and Log do not
+    // exist off-device, so anything touching them is verified by the device run,
+    // not here. android.jar's org.json is a stub there too, hence libs.json.
     testImplementation libs.junit
+    testImplementation libs.json
 }
 
 // Copies the built APK to <module>/smali_generator.apk, where stitch's

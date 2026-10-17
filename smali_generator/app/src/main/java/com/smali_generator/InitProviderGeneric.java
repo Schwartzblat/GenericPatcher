@@ -1,6 +1,7 @@
 package com.smali_generator;
 
 import android.content.ContentProvider;
+import android.content.Context;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
@@ -17,6 +18,7 @@ import com.smali_generator.patches.NetworkAdBlockHook;
 import com.smali_generator.patches.UnityAdsHook;
 import com.smali_generator.patches.WebViewAdBlockHook;
 import com.smali_generator.utils.AdRules;
+import com.smali_generator.utils.Artifacts;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -52,16 +54,22 @@ public class InitProviderGeneric extends ContentProvider {
     @Override
     public boolean onCreate() {
         Log.i(TAG, "InitProviderGeneric: onCreate called");
-        on_load();
+        on_load(getContext());
         return true;
     }
 
-    public static void on_load() {
+    public static void on_load(Context context) {
         if (is_loaded.getAndSet(true)) {
             return;
         }
+        Artifacts.init(context);
+        if (!AdRules.load()) {
+            // Still install the hooks: with no rules they block nothing, and the
+            // app runs as if unpatched rather than crashing before its Application.
+            Log.e(TAG, "No ad rules in assets/patcher/artifactory.json: nothing will be blocked");
+        }
         Log.i(TAG, "Patch loaded! Ad SDKs at patch time: "
-                + (AdRules.SDKS_PRESENT.isEmpty() ? "none" : AdRules.SDKS_PRESENT)
+                + (AdRules.sdksPresent().isEmpty() ? "none" : AdRules.sdksPresent())
                 + "; " + AdRules.curatedCount() + " curated ad domains, " + AdRules.harvestedCount()
                 + " harvested hosts, caller rule " + (AdRules.callerBlockEnabled() ? "on" : "off"));
         try {

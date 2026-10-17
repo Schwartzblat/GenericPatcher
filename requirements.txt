@@ -1,10 +1,10 @@
 # stitch is pinned to a minor: main.py passes the provider class name as
-# ExternalModule's second field, which needs stitch >= 1.3.0, and a bundle's
-# base split is chosen by its manifest from 1.4.4 -- before that it was the
-# biggest file, which patches an asset split and silently hooks nothing.
-# Verified with 1.4.4.
+# ExternalModule's second field (stitch >= 1.3.0) and the artifacts_asset
+# argument (stitch >= 1.6.0); 1.6 is also needed for bundle.py. A bundle's base
+# split is chosen by its manifest from 1.4.4 -- before that it was the biggest
+# file, which patches an asset split and silently hooks nothing.
 androguard~=4.1.3
 lxml>=5.3.1
 cryptography~=44.0.2
 requests~=2.32.3
-stitch~=1.4.4
+stitch~=1.6
