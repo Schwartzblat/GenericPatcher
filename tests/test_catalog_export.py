@@ -1,6 +1,6 @@
 import json
 
-from artifactory_generator.ad_catalog import SDKS
+from artifactory_generator.ad_catalog import APP_FRAME_PACKAGES, PROTECTED_HOSTS, SDKS, URL_RULES
 from artifactory_generator.catalog_export import catalog_json
 
 
@@ -24,3 +24,10 @@ def test_lists_are_sorted_where_promised():
     catalog = catalog_json()
     assert catalog['harvest_bare_tlds'] == sorted(catalog['harvest_bare_tlds'])
     assert catalog['package_roots'] == sorted(catalog['package_roots'])
+
+
+def test_rules_mirror_ad_catalog():
+    catalog = catalog_json()
+    assert catalog['protected_hosts'] == list(PROTECTED_HOSTS)
+    assert catalog['url_rules'] == [[host, path] for host, path in URL_RULES]
+    assert catalog['app_frame_packages'] == list(APP_FRAME_PACKAGES)

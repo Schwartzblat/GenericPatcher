@@ -15,11 +15,11 @@ import java.util.Iterator;
 import java.util.Map;
 
 /**
- * The obfuscated names the phone found for this WhatsApp version, read from
+ * The ad rules the finder computed for this app, read from
  * assets/patcher/artifactory.json (a flat string -> string object).
  *
  * Total: a missing or corrupt file is an empty map, and an empty value counts
- * as missing, so a hook asks {@link #hasAll} rather than guessing.
+ * as missing.
  */
 public final class Artifacts {
 

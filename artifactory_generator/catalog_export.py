@@ -1,6 +1,8 @@
 from artifactory_generator import ad_inventory
 from artifactory_generator.ad_catalog import APP_FRAME_PACKAGES, PROTECTED_HOSTS, SDKS, URL_RULES, HARVEST_BARE_TLDS
 
+# Bump whenever the finder's matching rules change (the regexes, the package-to-class
+# rule): the phone's port mirrors that code, which catalog.json does not carry.
 CATALOG_FORMAT = 1
 
 

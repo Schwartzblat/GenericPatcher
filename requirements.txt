@@ -1,6 +1,8 @@
 # stitch is pinned to a minor: main.py passes the provider class name as
 # ExternalModule's second field (stitch >= 1.3.0) and the artifacts_asset
-# argument (stitch >= 1.6.0); 1.6 is also needed for bundle.py. A bundle's base
+# argument (stitch >= 1.5.0); bundle.py needs 1.6 (bundles without features.json
+# and with extra signed files). 1.6 is not on PyPI: install it from the
+# monorepo's utils/Stitch (see the README). A bundle's base
 # split is chosen by its manifest from 1.4.4 -- before that it was the biggest
 # file, which patches an asset split and silently hooks nothing.
 androguard~=4.1.3

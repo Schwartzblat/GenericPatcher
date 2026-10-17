@@ -16,6 +16,8 @@ Needs Python 3.11+, JDK 17+ and an Android SDK.
 
 ```bash
 python3 -m venv .venv
+# Stitch 1.6 is not on PyPI: install it from the monorepo's utils/Stitch
+.venv/bin/pip install -e ../../utils/Stitch
 .venv/bin/pip install -r requirements.txt
 
 # an APK in, a signed APK out
@@ -46,6 +48,16 @@ What counts as an ad lives in one data file,
 [`ad_catalog.py`](artifactory_generator/ad_catalog.py) — about 30 SDKs, plus the
 hosts that are never blocked. At patch time the finder also *harvests* the hosts
 named inside the SDKs it finds, which catches endpoints no static list knows.
+
+## Bundle and golden tools
+
+- `bundle.py` builds the signed generic bundle the store applies on the phone:
+  this module, PatchPaywall and `catalog.json` (the ad catalog). Pass
+  `--signing-key` (EC P-256 PEM) and `--paywall` (the PatchPaywall checkout).
+  With `--upload` it also sends the bundle to the patch server, reading
+  `PATCH_SERVER_URL` and `BUNDLE_UPLOAD_SECRET` from the environment.
+- `golden.py` records the desktop finder's `AD_*` output for one APK, so the
+  phone's port of the finder can be checked against it.
 
 ## Status
 
