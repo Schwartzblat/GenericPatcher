@@ -67,6 +67,9 @@ SDKS = (
           ('adnxs.com', 'adsrvr.org', 'rubiconproject.com', 'openx.net', 'casalemedia.com', 'taboola.com',
            'outbrain.com', 'adform.net', 'smartadserver.com', 'teads.tv', 'adsafeprotected.com', 'moatads.com',
            'doubleverify.com', 'serving-sys.com', 'flashtalking.com', 'yieldmo.com', 'sharethrough.com')),
+    AdSdk('Publisher ad servers', (),
+          # A publisher's own ad hosts, named in full: the rest of its domain is the app's backend.
+          ('m-ads-configs.miniclip.com',)),
 )
 
 # Never blocked by a host rule (curated suffixes above still win). Mostly here to

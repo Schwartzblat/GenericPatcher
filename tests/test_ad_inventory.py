@@ -48,3 +48,12 @@ def test_no_ads_still_fires_with_empty_values(tmp_path):
     assert artifacts['AD_HOSTS_HARVESTED'] == ''
     assert artifacts['AD_HOST_SUFFIXES'] != ''
     assert finder.is_found
+
+
+def test_publisher_ad_host_is_blocked_alone(tmp_path):
+    # Miniclip's ad config, seen from Subway Surfers 3.70.3; the rest of miniclip.com is the game's backend.
+    artifacts = run(make_finder(tmp_path, {}))
+    suffixes = artifacts['AD_HOST_SUFFIXES'].split(',')
+    assert 'm-ads-configs.miniclip.com' in suffixes
+    assert 'miniclip.com' not in suffixes
+    assert artifacts['AD_SDKS_PRESENT'] == ''
