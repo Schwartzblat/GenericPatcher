@@ -1,16 +1,22 @@
 package com.smali_generator.patches;
 
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Build;
+import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
 
 import com.arthooks.ArtHooks;
 import com.smali_generator.Hook;
 
 import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 
@@ -21,13 +27,17 @@ import java.util.concurrent.Executor;
  * Handlers are asked in registration order and the first non-PASS decision wins:
  *
  *   REFUSE  bindService returns false, as for a service that does not exist
+ *   FAKE    bindService returns true and the handler delivers the connection
  *   PASS    not ours; the original bindService runs
+ *
+ * android.os.Handler is referenced fully qualified below: this class declares
+ * its own nested Handler interface, which shadows the import.
  */
 public class BindServiceHook implements Hook {
 
     private static final String TAG = "PATCH";
 
-    public enum Decision { PASS, REFUSE }
+    public enum Decision { PASS, REFUSE, FAKE }
 
     public interface Handler {
         Decision onBind(Context thiz, Intent intent, ServiceConnection conn, Executor executor);
@@ -35,8 +45,41 @@ public class BindServiceHook implements Hook {
 
     private static final List<Handler> handlers = new CopyOnWriteArrayList<>();
 
+    // Connections we answered ourselves. The framework never registered them, so
+    // a later unbindService would throw IllegalArgumentException("Service not
+    // registered") into the app -- Play Billing catches that, but an app whose
+    // dispose() calls unbindService unguarded (the classic IabHelper) crashes.
+    // Weak, so holding a connection here never keeps the app's object alive.
+    private static final Set<ServiceConnection> faked =
+            Collections.synchronizedSet(
+                    Collections.newSetFromMap(new WeakHashMap<ServiceConnection, Boolean>()));
+
     public static void register(Handler handler) {
         handlers.add(handler);
+    }
+
+    /** Delivers onServiceConnected off the binding call, as the framework does. */
+    public static void deliver(final ServiceConnection conn, Executor executor,
+                               final ComponentName name, final IBinder binder) {
+        if (conn == null) {
+            return;
+        }
+        faked.add(conn);
+        Runnable task = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    conn.onServiceConnected(name, binder);
+                } catch (Throwable t) {
+                    Log.e(TAG, "Bind: onServiceConnected failed", t);
+                }
+            }
+        };
+        if (executor != null) {
+            executor.execute(task);
+        } else {
+            new android.os.Handler(Looper.getMainLooper()).post(task);
+        }
     }
 
     private static Decision decide(Context thiz, Intent intent, ServiceConnection conn,
@@ -66,6 +109,9 @@ public class BindServiceHook implements Hook {
         if (decision == Decision.REFUSE) {
             return false;
         }
+        if (decision == Decision.FAKE) {
+            return true;
+        }
         return bind_backup(thiz, intent, conn, flags);
     }
 
@@ -78,6 +124,9 @@ public class BindServiceHook implements Hook {
         if (decision == Decision.REFUSE) {
             return false;
         }
+        if (decision == Decision.FAKE) {
+            return true;
+        }
         return bind_executor_backup(thiz, intent, flags, executor, conn);
     }
 
@@ -89,7 +138,24 @@ public class BindServiceHook implements Hook {
         if (decision == Decision.REFUSE) {
             return false;
         }
+        if (decision == Decision.FAKE) {
+            return true;
+        }
         return bind_flags_backup(thiz, intent, conn, flags);
+    }
+
+    // --- unbindService, the other half of a faked bind ---
+
+    static native void unbind_backup(Object thiz, ServiceConnection conn);
+
+    static void unbind(Object thiz, ServiceConnection conn) {
+        if (conn != null && faked.remove(conn)) {
+            // Nothing to unregister, and no onServiceDisconnected: the framework
+            // does not deliver one for an explicit unbind either.
+            Log.i(TAG, "Bind: swallowed unbindService for a connection we faked");
+            return;
+        }
+        unbind_backup(thiz, conn);
     }
 
     private static void hook(Method original, String replacement, Class<?>... params) {
@@ -118,6 +184,12 @@ public class BindServiceHook implements Hook {
                     "bind", Object.class, Intent.class, ServiceConnection.class, int.class);
         } catch (Throwable t) {
             Log.e(TAG, "Bind: bindService/3: " + t);
+        }
+        try {
+            hook(contextImpl.getDeclaredMethod("unbindService", ServiceConnection.class),
+                    "unbind", Object.class, ServiceConnection.class);
+        } catch (Throwable t) {
+            Log.e(TAG, "Bind: unbindService: " + t);
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {

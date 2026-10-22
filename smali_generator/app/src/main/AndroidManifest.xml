@@ -13,6 +13,20 @@
          android:icon) are dropped with a warning, because the target's
          manifest is read against the TARGET's resource table. Set them from
          code. -->
-    <application tools:ignore="MissingApplicationIcon" />
+    <application tools:ignore="MissingApplicationIcon">
+
+        <!-- Stands in for the Play Store purchase screen, for the IAP layer.
+             Not exported: the only thing that starts it is a PendingIntent this
+             patch creates inside the target app itself. Theme.NoDisplay is a
+             platform resource, so it resolves against the target's table; a
+             theme of the module's own would not. -->
+        <activity
+            android:name=".PurchaseResultActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay" />
+
+    </application>
 
 </manifest>
