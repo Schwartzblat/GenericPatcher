@@ -14,11 +14,13 @@ import com.smali_generator.patches.AdActivityHook;
 import com.smali_generator.patches.BindServiceHook;
 import com.smali_generator.patches.GmaHook;
 import com.smali_generator.patches.GmaPlayServicesHook;
+import com.smali_generator.patches.IapHook;
 import com.smali_generator.patches.NetworkAdBlockHook;
 import com.smali_generator.patches.UnityAdsHook;
 import com.smali_generator.patches.WebViewAdBlockHook;
 import com.smali_generator.utils.AdRules;
 import com.smali_generator.utils.Artifacts;
+import com.smali_generator.utils.IapRules;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -47,6 +49,7 @@ public class InitProviderGeneric extends ContentProvider {
             new GmaHook(),             // Google Mobile Ads loads fail at once with "no fill"
             new GmaPlayServicesHook(), // ...and may not have Play services fetch ads out of our process
             new UnityAdsHook(),        // Unity Ads never initialises (it would switch to Cronet)
+            new IapHook(),             // the fake Play billing bind, purchase screen and receipt checks
     };
 
     static final AtomicBoolean is_loaded = new AtomicBoolean(false);
@@ -69,6 +72,7 @@ public class InitProviderGeneric extends ContentProvider {
             // not crash before its Application.
             Log.e(TAG, "No ad rules in assets/patcher/artifactory.json: host, URL and caller rules are off (SDK hooks still apply)");
         }
+        IapRules.load();
         Log.i(TAG, "Patch loaded! Ad SDKs at patch time: "
                 + (AdRules.sdksPresent().isEmpty() ? "none" : AdRules.sdksPresent())
                 + "; " + AdRules.curatedCount() + " curated ad domains, " + AdRules.harvestedCount()
