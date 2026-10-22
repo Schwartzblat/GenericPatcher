@@ -7,11 +7,12 @@ from stitch.common import ExternalModule
 # Signature finders live in ./artifactory_generator/ and are registered in
 # artifactory_list below. What they block is configured in ad_catalog.py.
 from artifactory_generator.ad_inventory import AdInventoryFinder
+from artifactory_generator.iap_inventory import IapInventoryFinder
 from constants import ARTIFACTS_ASSET, MODULE_PROVIDER, PAYWALL_PROVIDER
 
 
 def get_args():
-    parser = argparse.ArgumentParser(description='Remove ads from any Android app.')
+    parser = argparse.ArgumentParser(description='Remove ads from any Android app, and optionally free its IAPs.')
     parser.add_argument('-p', '--apk-path', dest='apk_path', help='APK / XAPK / APKM path', required=True)
     parser.add_argument('-o', '--output', dest='output', help='Output APK path', required=False,
                         default='output.apk')
@@ -30,6 +31,8 @@ def get_args():
                         help="Block only the curated hosts, not the ones found in the APK's ad SDK code")
     parser.add_argument('--no-caller-block', dest='caller_block', action='store_false', default=True,
                         help='Block by host only, not every request that ad SDK code makes')
+    parser.add_argument('--iap', dest='iap', action='store_true', default=False,
+                        help='Also make Google Play in-app purchases succeed, offline (see README)')
     parser.add_argument('--extra-artifacts', dest='extra_artifacts',
                         help='Extra artifacts for the artifactory, in the format "key:value"',
                         required=False, default=[], nargs='+')
@@ -50,6 +53,7 @@ def main():
         external_modules.append(ExternalModule(Path(args.paywall), PAYWALL_PROVIDER))
     artifactory_list = [
         AdInventoryFinder(args),
+        IapInventoryFinder(args),
     ]
     with Stitch(
             apk_path=args.apk_path,

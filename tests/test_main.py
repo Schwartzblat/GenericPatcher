@@ -2,6 +2,7 @@ import sys
 
 import main
 from artifactory_generator.ad_inventory import AdInventoryFinder
+from artifactory_generator.iap_inventory import IapInventoryFinder
 
 
 def test_main_writes_the_artifacts_asset(monkeypatch):
@@ -24,5 +25,6 @@ def test_main_writes_the_artifacts_asset(monkeypatch):
     monkeypatch.setattr(sys, 'argv', ['main.py', '-p', 'app.apk'])
     main.main()
     assert calls[0]['artifacts_asset'] == 'assets/patcher/artifactory.json'
-    assert len(calls[0]['artifactory_list']) == 1
+    assert len(calls[0]['artifactory_list']) == 2
     assert isinstance(calls[0]['artifactory_list'][0], AdInventoryFinder)
+    assert isinstance(calls[0]['artifactory_list'][1], IapInventoryFinder)
