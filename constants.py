@@ -1,4 +1,4 @@
-PATCHER_VERSION = "1.0.0"
+PATCHER_VERSION = "1.1.0"
 PACKAGE = "generic"
 
 # Stitch writes this into the target's manifest as the provider's android:name.

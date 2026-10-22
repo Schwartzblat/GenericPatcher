@@ -52,7 +52,8 @@ def test_bundle_cli_builds_a_verifiable_bundle(tmp_path, monkeypatch):
     assert bundle.main(['--paywall', str(tmp_path / 'PatchPaywall'), '--signing-key', str(key_pem), '-o', str(out),
                         '--work', str(tmp_path / 'work')]) == 0
     meta = verify_bundle(out, pub_pem.read_bytes())
-    assert meta['package'] == 'generic' and meta['patcher_version'] == '1.0.0'
+    assert meta['package'] == 'generic' and meta['patcher_version'] == '1.1.0'
+    assert bundle.get_args_from(['--paywall', 'p', '--signing-key', 'k']).output == 'bundle-generic-1.1.0.zip'
     assert meta['dex_order'] == ['module.apk', 'paywall.apk']
     assert seen == [('smali_generator', {}),
                     ('PatchPaywall', {'PAYWALL_PROVIDER_CLASS': 'InitProviderPaywallGeneric'})]

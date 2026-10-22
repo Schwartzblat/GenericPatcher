@@ -37,6 +37,7 @@ only `config.armeabi_v7a.apk` needs `--arch armeabi-v7a`, or no hook loads.
 | `--arch` | ABI whose `libarthooks.so` is injected. Default `arm64-v8a`. |
 | `--allow-host H` | Never block this host — the app needs it. |
 | `--block-host H` | Block this host as well. |
+| `--iap` | Also make Google Play in-app purchases succeed, offline. |
 
 ## How it works
 
@@ -63,6 +64,10 @@ named inside the SDKs it finds, which catches endpoints no static list knows.
 
 Ads: verified on an emulator against real Google test ads, and on a phone
 against shipping apps from the Play Store.
+
+Purchases (`--iap`): verified on an emulator against a Google test-billing app.
+That verification stays out of band — no shipping app's purchase path has been
+checked, so try the app you care about before trusting it.
 
 One limit worth knowing before you start:
 

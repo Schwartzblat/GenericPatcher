@@ -1,5 +1,6 @@
 from artifactory_generator import ad_inventory
 from artifactory_generator.ad_catalog import APP_FRAME_PACKAGES, PROTECTED_HOSTS, SDKS, URL_RULES, HARVEST_BARE_TLDS
+from artifactory_generator.iap_catalog import IAP_CLIENTS, VERIFIER_ANCHORS
 
 # Bump whenever the finder's matching rules change (the regexes, the package-to-class
 # rule): the phone's port mirrors that code, which catalog.json does not carry.
@@ -18,4 +19,8 @@ def catalog_json() -> dict:
         'app_frame_packages': list(APP_FRAME_PACKAGES),
         'harvest_bare_tlds': sorted(HARVEST_BARE_TLDS),
         'package_roots': sorted(ad_inventory.PACKAGE_ROOTS),
+        'iap': {
+            'verifier_anchors': list(VERIFIER_ANCHORS),
+            'clients': [{'name': client.name, 'packages': list(client.packages)} for client in IAP_CLIENTS],
+        },
     }
