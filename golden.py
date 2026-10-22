@@ -8,6 +8,7 @@ from typing import List
 from stitch import Stitch
 
 from artifactory_generator.ad_inventory import AdInventoryFinder
+from artifactory_generator.iap_inventory import IapInventoryFinder
 
 
 def get_args_from(argv: List[str]):
@@ -17,6 +18,8 @@ def get_args_from(argv: List[str]):
     parser.add_argument('-o', '--output', dest='output', required=True, help='Output JSON')
     parser.add_argument('-t', '--temp', dest='temp_path', default='./.golden-work',
                         help='Work dir (must not exist; removed afterwards)')
+    parser.add_argument('--iap', dest='iap', action='store_true', default=False,
+                        help="Also record the IAP finder's IAP_* output")
     return parser.parse_args(argv)
 
 
@@ -28,12 +31,16 @@ def main(argv: List[str]) -> int:
     # The finder's defaults: no extra block/allow hosts, harvesting and the caller block on.
     finder_args = argparse.Namespace(temp_path=args.temp_path, block_hosts=[], allow_hosts=[], harvest=True,
                                      caller_block=True)
+    artifactory_list = [AdInventoryFinder(finder_args)]
+    if args.iap:
+        artifactory_list.append(IapInventoryFinder(argparse.Namespace(temp_path=args.temp_path, iap=True)))
     try:
-        artifacts = Stitch(apk_path=args.apk, temp_path=args.temp_path, artifactory_list=[AdInventoryFinder(finder_args)],
+        artifacts = Stitch(apk_path=args.apk, temp_path=args.temp_path, artifactory_list=artifactory_list,
                            external_modules=[], should_sign=False).find_artifacts()
     finally:
         shutil.rmtree(args.temp_path, ignore_errors=True)
-    golden = {key: value for key, value in artifacts.items() if key.startswith('AD_')}
+    golden = {key: value for key, value in artifacts.items()
+              if key.startswith('AD_') or (args.iap and key.startswith('IAP_'))}
     out = Path(args.output)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(golden, indent=2, sort_keys=True) + '\n', encoding='utf8')
