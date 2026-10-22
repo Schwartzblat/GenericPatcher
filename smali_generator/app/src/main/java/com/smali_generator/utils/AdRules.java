@@ -87,6 +87,17 @@ public final class AdRules {
         return suffixes.length > 0;
     }
 
+    /**
+     * True exactly when the artifacts carry an ad layer at all, i.e. the finder
+     * wrote AD_HOST_SUFFIXES (it does for every app with ad code, ad-free ones
+     * included). A purchases-only build, or a missing/corrupt
+     * artifactory.json, has none, and the glue hooks that reach into ad SDK
+     * classes stay off.
+     */
+    public static boolean layerEnabled() {
+        return Artifacts.get("AD_HOST_SUFFIXES") != null;
+    }
+
     public static String sdksPresent() {
         return sdksPresent;
     }

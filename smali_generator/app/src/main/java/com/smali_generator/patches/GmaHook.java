@@ -8,6 +8,7 @@ import android.view.View;
 
 import com.arthooks.ArtHooks;
 import com.smali_generator.Hook;
+import com.smali_generator.utils.AdRules;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
@@ -233,6 +234,10 @@ public class GmaHook implements Hook {
     }
 
     public void load() {
+        if (!AdRules.layerEnabled()) {
+            Log.i(TAG, "Gma: ad artifacts absent, glue off");
+            return;
+        }
         try {
             if (optionalClass("MobileAds") == null) {
                 Log.i(TAG, "Gma: GMA API not present under its own names, leaving GMA to the network block");

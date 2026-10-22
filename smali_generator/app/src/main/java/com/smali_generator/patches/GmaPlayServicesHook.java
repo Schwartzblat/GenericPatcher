@@ -7,6 +7,7 @@ import android.util.Log;
 
 import com.arthooks.ArtHooks;
 import com.smali_generator.Hook;
+import com.smali_generator.utils.AdRules;
 
 import java.lang.reflect.Method;
 import java.util.concurrent.Executor;
@@ -88,6 +89,10 @@ public class GmaPlayServicesHook implements Hook {
     }
 
     public void load() {
+        if (!AdRules.layerEnabled()) {
+            Log.i(TAG, "GmaPlayServices: ad artifacts absent, glue off");
+            return;
+        }
         try {
             hook(ClassLoader.class.getDeclaredMethod("loadClass", String.class), "load_class", Object.class, String.class);
         } catch (Throwable t) {

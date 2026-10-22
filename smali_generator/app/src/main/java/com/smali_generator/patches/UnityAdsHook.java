@@ -8,6 +8,7 @@ import android.util.Log;
 
 import com.arthooks.ArtHooks;
 import com.smali_generator.Hook;
+import com.smali_generator.utils.AdRules;
 
 import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
@@ -117,6 +118,10 @@ public class UnityAdsHook implements Hook {
     }
 
     public void load() {
+        if (!AdRules.layerEnabled()) {
+            Log.i(TAG, "UnityAds: ad artifacts absent, glue off");
+            return;
+        }
         Class<?> unityAds;
         try {
             unityAds = Class.forName(ADS + "UnityAds");

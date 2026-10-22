@@ -32,6 +32,22 @@ public class AdRulesTest {
         assertEquals("AppLovin", AdRules.sdksPresent());
     }
 
+    @Test public void layerEnabledFallsWhenArtifactsAbsent() {
+        for (String json : new String[]{null, "not json", "{}"}) {
+            Artifacts.load(json);
+            assertFalse(AdRules.layerEnabled());
+        }
+    }
+
+    @Test public void layerEnabledRisesWhenAdKeysPresent() {
+        Artifacts.load(FULL);
+        AdRules.load();
+        assertTrue(AdRules.layerEnabled());
+        Artifacts.load("{}");
+        AdRules.load();
+        assertFalse(AdRules.layerEnabled());
+    }
+
     @Test public void missingOrCorruptArtifactsMeanNoRules() {
         for (String json : new String[]{null, "not json", "{}"}) {
             Artifacts.load(json);
