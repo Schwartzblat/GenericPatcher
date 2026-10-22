@@ -23,6 +23,9 @@ python3 -m venv .venv
 # an APK in, a signed APK out
 .venv/bin/python main.py -p ./game.apk -o ./game-patched.apk
 
+# purchases: Google Play billing succeeds offline
+.venv/bin/python main.py -p ./game.apk -o ./game-patched.apk --iap
+
 # a bundle in gives a zip of signed splits out
 .venv/bin/python main.py -p ./game.xapk -o ./game-patched.xapk
 
@@ -57,22 +60,34 @@ named inside the SDKs it finds, which catches endpoints no static list knows.
   `--signing-key` (EC P-256 PEM) and `--paywall` (the PatchPaywall checkout).
   With `--upload` it also sends the bundle to the patch server, reading
   `PATCH_SERVER_URL` and `BUNDLE_UPLOAD_SECRET` from the environment.
-- `golden.py` records the desktop finder's `AD_*` output for one APK, so the
-  phone's port of the finder can be checked against it.
+- `golden.py` records the desktop finder's `AD_*` output for one APK, and with
+  `--iap` its `IAP_*` keys too, so the phone's port of the finder can be checked
+  against it.
 
 ## Status
 
 Ads: verified on an emulator against real Google test ads, and on a phone
 against shipping apps from the Play Store.
 
-Purchases (`--iap`): verified on an emulator against a Google test-billing app.
-That verification stays out of band — no shipping app's purchase path has been
-checked, so try the app you care about before trusting it.
+Purchases (`--iap`): verified on an emulator running Defender II 1.4.9, a
+shipping 2013-era game, across four runs: the bind, sku-details and buy flows
+served on its three SKUs, receipts were minted and persisted in the ledger,
+`getPurchases` kept them owned across restarts, and re-buying an owned SKU got
+the real store's `Item Already Owned` answer. Per-app limits: Defender II's
+coin/crystal counters did not credit, because that game grants entitlements
+only after confirming on its own developer server, a response the patch's
+minted receipts can never satisfy. So: the billing-layer contract works on
+shipping apps, and each app's economy then depends on how it trusts the
+store's response.
 
-One limit worth knowing before you start:
+Limits worth knowing before you start:
 
 - **An app with Play's anti-tamper protection (PairIP) will not run re-signed**
   — patched or not. Check that the untouched APK runs before blaming the patch.
+- **Purchases grant what the store answers, not what the app's counters do.**
+  An app that re-confirms with its own server before crediting an entitlement
+  never sees the patch's minted receipts as valid, so the store layer works
+  while the app's counters stay put (Defender II does exactly this).
 
 ```bash
 adb logcat -s PATCH ArtHooks     # every decision, one line each

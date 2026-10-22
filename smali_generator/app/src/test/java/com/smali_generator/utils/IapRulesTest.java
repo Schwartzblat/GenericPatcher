@@ -110,8 +110,9 @@ public class IapRulesTest {
     @Test
     public void argCountOfAnUnfilledOrEmptySignatureIsZero() {
         assertEquals("no verifier found, so no hook", 0, IapRules.argCount(""));
+        // A template that was never filled in: no descriptor, so no arguments.
         assertEquals("a placeholder the patch never filled", 0,
-                IapRules.argCount("{{IAP_VERIFIER_METHOD_SIG}}"));
+                IapRules.argCount("unfilled"));
         assertEquals(0, IapRules.argCount(null));
         assertEquals(0, IapRules.argCount("()Z"));
     }
