@@ -54,6 +54,12 @@ What counts as an ad lives in one data file,
 hosts that are never blocked. At patch time the finder also *harvests* the hosts
 named inside the SDKs it finds, which catches endpoints no static list knows.
 
+**Google Maps keeps working re-signed.** The Maps SDK asks Play services for an
+API token, and Play services vouches for the app with its re-signed certificate,
+which Google refuses. The patch answers that bind itself, in-process, and fetches
+the token with the original certificate; `X-Android-Cert` headers carry it too.
+`--no-original-cert` turns this off.
+
 ## Bundle and golden tools
 
 - `bundle.py` builds the signed generic bundle the store applies on the phone:
@@ -89,6 +95,11 @@ Limits worth knowing before you start:
   An app that re-confirms with its own server before crediting an entitlement
   never sees the patch's minted receipts as valid, so the store layer works
   while the app's counters stay put (Defender II does exactly this).
+- **The Maps token fix is the patch's call, not Play services'.** It always
+  answers the token request, so if Google changes the token service, an app whose
+  Maps key is not tied to the original certificate loses a map that worked re-signed
+  until a new bundle ships. Only the Play services Maps SDK is covered, and the
+  header swap reaches only the platform `HttpURLConnection` (not OkHttp, Cronet or gRPC).
 
 ```bash
 adb logcat -s PATCH ArtHooks     # every decision, one line each

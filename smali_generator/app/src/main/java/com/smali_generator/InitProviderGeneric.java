@@ -16,6 +16,7 @@ import com.smali_generator.patches.CertHeaderHook;
 import com.smali_generator.patches.GmaHook;
 import com.smali_generator.patches.GmaPlayServicesHook;
 import com.smali_generator.patches.IapHook;
+import com.smali_generator.patches.MapsTokenHook;
 import com.smali_generator.patches.NetworkAdBlockHook;
 import com.smali_generator.patches.UnityAdsHook;
 import com.smali_generator.patches.WebViewAdBlockHook;
@@ -53,6 +54,7 @@ public class InitProviderGeneric extends ContentProvider {
             new GmaPlayServicesHook(), // ...and may not have Play services fetch ads out of our process
             new UnityAdsHook(),        // Unity Ads never initialises (it would switch to Cronet)
             new IapHook(),             // the fake Play billing bind, purchase screen and receipt checks
+            new MapsTokenHook(),       // the Maps SDK's token service answered with the original certificate
     };
 
     static final AtomicBoolean is_loaded = new AtomicBoolean(false);
