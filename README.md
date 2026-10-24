@@ -56,9 +56,12 @@ named inside the SDKs it finds, which catches endpoints no static list knows.
 
 **Google Maps keeps working re-signed.** The Maps SDK asks Play services for an
 API token, and Play services vouches for the app with its re-signed certificate,
-which Google refuses for API keys tied to the original certificate. The patch answers that bind itself, in-process, and fetches
-the token with the original certificate; `X-Android-Cert` headers carry it too.
-`--no-original-cert` (a desktop flag) turns this off; the store always applies it.
+which Google refuses for API keys tied to the original certificate. The patch
+answers that bind itself, in-process, and fetches the token with the original
+certificate; `X-Android-Cert` headers carry it too. `--no-original-cert` (a
+desktop flag) turns this off. On the phone the fix applies with a store whose
+engine writes the original certificate (store builds from this release on);
+older stores and today's live store write no key, so the fix stays off there.
 
 ## Bundle and golden tools
 

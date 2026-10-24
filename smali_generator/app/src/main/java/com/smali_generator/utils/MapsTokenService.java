@@ -55,8 +55,8 @@ public class MapsTokenService extends Binder {
 
         short errorCode = MapsTokenProtocol.check(requestedPackage, ownPackage, apiKey);
         String token = null;
+        final long now = System.currentTimeMillis();
         if (errorCode == -1) {
-            final long now = System.currentTimeMillis();
             MapsTokenClient.Result result;
             if (Looper.myLooper() == Looper.getMainLooper()) {
                 result = OffMainThread.call(() -> MapsTokenClient.fetch(MapsTokenProtocol.BASE_URL,
@@ -72,7 +72,6 @@ public class MapsTokenService extends Binder {
 
         Bundle out = new Bundle();
         if (token != null) {
-            long now = System.currentTimeMillis();
             out.putString("API_TOKEN", token);
             out.putLong("EXPIRY_TIME", now + MapsTokenProtocol.VALIDITY_MILLIS);
             out.putLong("VALIDITY_DURATION", MapsTokenProtocol.VALIDITY_MILLIS);

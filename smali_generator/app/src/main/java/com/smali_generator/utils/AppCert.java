@@ -24,8 +24,19 @@ public final class AppCert {
 
     private AppCert() {}
 
-    @SuppressWarnings("deprecation")
     public static synchronized void init(Context context) {
+        try {
+            load(context);
+        } catch (Throwable t) {
+            original = null;
+            installed = null;
+            active = false;
+            throw t;
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private static void load(Context context) {
         original = null;
         installed = null;
         active = false;

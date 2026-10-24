@@ -110,6 +110,16 @@ public class MapsTokenClientTest {
         assertEquals(4, r.errorCode);
     }
 
+    @Test public void transientStatusesAreRetryable() throws Exception {
+        assertEquals(5, run(new Fake(408, PB, new byte[0])).errorCode);
+        assertEquals(5, run(new Fake(429, PB, new byte[0])).errorCode);
+        assertEquals(5, run(new Fake(302, PB, new byte[0])).errorCode);
+    }
+
+    @Test public void otherClientErrorsAreRefusals() throws Exception {
+        assertEquals(4, run(new Fake(403, PB, new byte[0])).errorCode);
+    }
+
     @Test public void notProtobufMeansUnreachable() throws Exception {
         MapsTokenClient.Result r = run(new Fake(200, "text/html", "<html>".getBytes(StandardCharsets.UTF_8)));
         assertNull(r.token);

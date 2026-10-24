@@ -30,6 +30,7 @@ public final class MapsTokenClient {
             c = (HttpURLConnection) new URL(baseUrl + MapsTokenProtocol.PATH).openConnection();
             c.setConnectTimeout(TIMEOUT_MILLIS);
             c.setReadTimeout(TIMEOUT_MILLIS);
+            c.setInstanceFollowRedirects(false);
             c.setRequestMethod("POST");
             c.setDoOutput(true);
             c.setRequestProperty("Content-Type", "application/x-protobuf");
@@ -38,7 +39,7 @@ public final class MapsTokenClient {
             c.setFixedLengthStreamingMode(body.length);
             try (OutputStream out = c.getOutputStream()) { out.write(body); }
             int status = c.getResponseCode();
-            if (status >= 500) return fail(5);
+            if (status >= 500 || status == 408 || status == 429 || (status >= 300 && status < 400)) return fail(5);
             if (status != 200) return fail(4);
             String type = c.getContentType();
             if (type == null || !type.toLowerCase(java.util.Locale.ROOT).startsWith("application/x-protobuf")) return fail(5);

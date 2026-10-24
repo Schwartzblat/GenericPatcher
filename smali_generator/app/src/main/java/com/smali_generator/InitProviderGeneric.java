@@ -71,7 +71,11 @@ public class InitProviderGeneric extends ContentProvider {
             return;
         }
         Artifacts.init(context);
-        AppCert.init(context);
+        try {
+            AppCert.init(context);
+        } catch (Throwable t) {
+            Log.e(TAG, "AppCert init failed: Google API fix off", t);
+        }
         if (!AdRules.load()) {
             // Still install the hooks: the host, URL and caller rules are off without
             // rules, and the SDK hooks gate themselves (on with no artifacts at all,
