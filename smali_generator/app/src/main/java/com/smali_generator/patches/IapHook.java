@@ -13,6 +13,8 @@ import com.arthooks.ArtHooks;
 import com.smali_generator.Hook;
 import com.smali_generator.utils.FakePlayBilling;
 import com.smali_generator.utils.IapRules;
+import com.smali_generator.utils.IapStore;
+import com.smali_generator.utils.PurchaseLedger;
 import com.smali_generator.utils.Utils;
 
 import java.lang.reflect.Executable;
@@ -148,6 +150,20 @@ public class IapHook implements Hook {
 
     static boolean signature_verify(Object thiz, byte[] signature) {
         if (minted.remove(thiz)) {
+            // Run the original and discard its answer. verify() is what
+            // consumes the bytes update() buffered, and our stub signature is
+            // not one any algorithm accepts: skipping the call left our
+            // receipt in the Signature's digest, so the app's next check on
+            // the same object hashed the leftovers too and a real signature
+            // failed. After this call the object is exactly as far along as an
+            // unpatched app's would be; only the answer differs. The throwable
+            // is swallowed because the app must see the true below, not the
+            // parse error our stub signature provokes.
+            try {
+                signature_verify_backup(thiz, signature);
+            } catch (Throwable ignored) {
+                // The receipt bytes are consumed either way.
+            }
             Log.i(TAG, "Iap: receipt verification allowed (minted receipt)");
             return true;
         }
@@ -174,6 +190,23 @@ public class IapHook implements Hook {
         appContext = Utils.getApplicationContext();
         Log.i(TAG, "Iap: on; billing clients at patch time: "
                 + (IapRules.CLIENTS_PRESENT.isEmpty() ? "none" : IapRules.CLIENTS_PRESENT));
+
+        // The ledger outlives the process; the remembered receipts do not.
+        // Replay it before any hook can fire, so an app that re-checks a
+        // receipt it saved, before its first getPurchases call, finds the
+        // check pass after a restart too.
+        if (appContext != null) {
+            try {
+                PurchaseLedger persisted = IapStore.ledger(appContext);
+                int replayed = IapRules.rememberReceipts(persisted.owned("inapp"))
+                        + IapRules.rememberReceipts(persisted.owned("subs"));
+                if (replayed > 0) {
+                    Log.i(TAG, "Iap: re-remembered " + replayed + " persisted receipt(s)");
+                }
+            } catch (Throwable t) {
+                Log.e(TAG, "Iap: ledger replay at startup: " + t);
+            }
+        }
 
         BindServiceHook.register(BILLING_HANDLER);
 

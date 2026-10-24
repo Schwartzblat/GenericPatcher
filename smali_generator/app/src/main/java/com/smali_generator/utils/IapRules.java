@@ -30,6 +30,11 @@ public final class IapRules {
     public static volatile String VERIFIER_SIG = "";
 
     private static final int MAX_REMEMBERED = 256;
+
+    // The only difference acknowledge writes between a receipt's two spellings.
+    private static final String ACKNOWLEDGED_TRUE = "\"acknowledged\":true";
+    private static final String ACKNOWLEDGED_FALSE = "\"acknowledged\":false";
+
     private static final Set<String> minted =
             Collections.synchronizedSet(new LinkedHashSet<String>());
 
@@ -95,10 +100,44 @@ public final class IapRules {
         return count;
     }
 
+    /**
+     * Refills the remembered set from a persisted ledger's receipts. The set
+     * is memory-only and the ledger is not, so IapHook.load() replays the
+     * ledger through this at startup: an app that re-checks a saved receipt
+     * with java.security.Signature before its first getPurchases call then
+     * finds it known, after a restart as well as before one.
+     *
+     * Returns how many receipts were replayed, for the caller's log line.
+     */
+    public static int rememberReceipts(Iterable<String> receipts) {
+        if (receipts == null) {
+            return 0;
+        }
+        int count = 0;
+        for (String json : receipts) {
+            if (json != null) {
+                rememberReceipt(json);
+                count++;
+            }
+        }
+        return count;
+    }
+
     public static void rememberReceipt(String json) {
         if (json == null) {
             return;
         }
+        // Acknowledge rewrites the stored receipt's flag
+        // (PurchaseLedger#acknowledge) while the app keeps the copy it was
+        // handed at purchase time, so both spellings of a receipt we minted
+        // are ours. Replaying the ledger after a restart sees the rewritten
+        // one; the app's Signature check presents the saved one.
+        remember(json);
+        remember(json.replace(ACKNOWLEDGED_TRUE, ACKNOWLEDGED_FALSE));
+        remember(json.replace(ACKNOWLEDGED_FALSE, ACKNOWLEDGED_TRUE));
+    }
+
+    private static void remember(String json) {
         synchronized (minted) {
             // Evict the oldest. next() before remove(): an iterator with no
             // preceding next() throws IllegalStateException, which would kill

@@ -2,11 +2,16 @@ package com.smali_generator.utils;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 public class IapRulesTest {
 
@@ -157,5 +162,56 @@ public class IapRulesTest {
                 IapRules.isMintedReceipt(oldest.getBytes(StandardCharsets.UTF_8)));
         assertTrue("the newest receipt is still known",
                 IapRules.isMintedReceipt("{\"orderId\":\"256\"}".getBytes(StandardCharsets.UTF_8)));
+    }
+
+    /**
+     * Restart: the ledger is persisted, the remembered set is not, so startup
+     * refills it from the ledger.
+     *
+     * The catch is that acknowledge rewrites the stored receipt while the app
+     * keeps the copy it was handed at purchase time, so the two spellings of
+     * one minted receipt are both ours -- replaying the ledger's exact JSON
+     * alone left the app's saved copy unrecognised after every restart.
+     */
+    @Test
+    public void replayingTheLedgerAfterARestartRecognisesTheSavedCopy() {
+        Map<String, String> backing = new HashMap<>();
+        PurchaseLedger ledger = ledgerOver(backing);
+        String saved = ledger.grant("remove_ads", "inapp");
+        assertTrue(ledger.acknowledge(PurchaseLedger.field(saved, "purchaseToken")));
+        String stored = ledger.owned("inapp").get(0);
+        assertNotEquals("acknowledge rewrote the stored receipt", saved, stored);
+
+        // What IapHook.load() does at startup, before any hook can fire.
+        assertEquals(1, IapRules.rememberReceipts(ledger.owned("inapp"))
+                + IapRules.rememberReceipts(ledger.owned("subs")));
+
+        assertTrue("the receipt the app saved at purchase time",
+                IapRules.isMintedReceipt(saved.getBytes(StandardCharsets.UTF_8)));
+        assertTrue("and the ledger's acknowledged spelling of it",
+                IapRules.isMintedReceipt(stored.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    /** The same flip seen from the other side, without a ledger in the way. */
+    @Test
+    public void rememberingAReceiptAlsoRemembersItsAcknowledgedSpelling() {
+        String before = "{\"orderId\":\"flip\",\"acknowledged\":false}";
+        String after = "{\"orderId\":\"flip\",\"acknowledged\":true}";
+        IapRules.rememberReceipt(before);
+        assertTrue(IapRules.isMintedReceipt(after.getBytes(StandardCharsets.UTF_8)));
+
+        String other = "{\"orderId\":\"other\",\"acknowledged\":true}";
+        assertFalse("only this receipt's spelling changes",
+                IapRules.isMintedReceipt(other.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    /** A ledger over a map, the same store PurchaseLedgerTest drives. */
+    private static PurchaseLedger ledgerOver(Map<String, String> backing) {
+        return new PurchaseLedger(new PurchaseLedger.KeyValueStore() {
+            @Override public String get(String key) { return backing.get(key); }
+            @Override public void put(String key, String value) { backing.put(key, value); }
+            @Override public void remove(String key) { backing.remove(key); }
+            @Override public Set<String> keys() { return new HashSet<>(backing.keySet()); }
+        }, "com.example.game");
     }
 }
