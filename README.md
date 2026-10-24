@@ -90,6 +90,14 @@ minted receipts can never satisfy. So: the billing-layer contract works on
 shipping apps, and each app's economy then depends on how it trusts the
 store's response.
 
+Google APIs after re-signing: verified on a Pixel 9a (Android 17) with Moovit
+5.201.6.1811 patched by the store at 1.2.0. Before, its Stations map stayed
+blank with `Authorization failure`. After, with the Maps token cache cleared,
+the Maps SDK asked the in-app token service, the token came back from Google,
+and the map drew. Search suggestions loaded with the original certificate
+swapped into `X-Android-Cert` on `maps.googleapis.com` and Firebase Remote
+Config.
+
 Limits worth knowing before you start:
 
 - **An app with Play's anti-tamper protection (PairIP) will not run re-signed**
