@@ -32,18 +32,27 @@ public class AdRulesTest {
         assertEquals("AppLovin", AdRules.sdksPresent());
     }
 
-    @Test public void layerEnabledFallsWhenArtifactsAbsent() {
+    /**
+     * Missing, corrupt or empty artifacts say nothing about which layers were
+     * chosen, so the SDK hooks keep blocking, as they did before purchases.
+     */
+    @Test public void layerStaysOnWhenArtifactsUnreadable() {
         for (String json : new String[]{null, "not json", "{}"}) {
             Artifacts.load(json);
-            assertFalse(AdRules.layerEnabled());
+            assertTrue(json, AdRules.layerEnabled());
         }
+    }
+
+    @Test public void layerEnabledFallsForAPurchasesOnlyBuild() {
+        Artifacts.load("{\"IAP_ENABLED\":\"true\",\"IAP_CLIENTS_PRESENT\":\"\"}");
+        assertFalse(AdRules.layerEnabled());
     }
 
     @Test public void layerEnabledRisesWhenAdKeysPresent() {
         Artifacts.load(FULL);
         AdRules.load();
         assertTrue(AdRules.layerEnabled());
-        Artifacts.load("{}");
+        Artifacts.load("{\"IAP_ENABLED\":\"true\"}");
         AdRules.load();
         assertFalse(AdRules.layerEnabled());
     }

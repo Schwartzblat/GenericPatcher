@@ -88,14 +88,16 @@ public final class AdRules {
     }
 
     /**
-     * True exactly when the artifacts carry an ad layer at all, i.e. the finder
-     * wrote AD_HOST_SUFFIXES (it does for every app with ad code, ad-free ones
-     * included). A purchases-only build, or a missing/corrupt
-     * artifactory.json, has none, and the glue hooks that reach into ad SDK
-     * classes stay off.
+     * Whether the glue hooks that reach into ad SDK classes apply. True when
+     * the artifacts carry an ad layer, i.e. the finder wrote AD_HOST_SUFFIXES
+     * (it does for every app with ad code, ad-free ones included), and when
+     * there are no artifacts at all: a missing or corrupt artifactory.json
+     * says nothing about what was chosen, so the SDK hooks keep blocking as
+     * they did before purchases. A purchases-only build has artifacts but no
+     * ad layer, and the glue hooks stay off.
      */
     public static boolean layerEnabled() {
-        return Artifacts.get("AD_HOST_SUFFIXES") != null;
+        return Artifacts.get("AD_HOST_SUFFIXES") != null || Artifacts.isEmpty();
     }
 
     public static String sdksPresent() {

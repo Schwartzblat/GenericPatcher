@@ -68,9 +68,11 @@ public class InitProviderGeneric extends ContentProvider {
         Artifacts.init(context);
         if (!AdRules.load()) {
             // Still install the hooks: the host, URL and caller rules are off without
-            // rules, and the SDK hooks gate themselves off too, bundled with the
-            // app, so the process does not crash before its Application.
-            Log.e(TAG, "No ad rules in assets/patcher/artifactory.json: host, URL and caller rules are off (SDK hooks are off too)");
+            // rules, and the SDK hooks gate themselves (on with no artifacts at all,
+            // off in a purchases-only build), so the process does not crash before
+            // its Application.
+            Log.e(TAG, "No ad rules in assets/patcher/artifactory.json: host, URL and caller rules are off"
+                    + (AdRules.layerEnabled() ? " (SDK hooks still apply)" : " (SDK hooks are off too)"));
         }
         IapRules.load();
         Log.i(TAG, "Patch loaded! Ad SDKs at patch time: "

@@ -62,6 +62,16 @@ public final class Artifacts {
         return value == null || value.isEmpty() ? null : value;
     }
 
+    /** True when no key has a value: the file was missing, corrupt or empty. */
+    public static synchronized boolean isEmpty() {
+        for (String value : values.values()) {
+            if (value != null && !value.isEmpty()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     public static synchronized boolean hasAll(Collection<String> keys) {
         for (String key : keys) {
             if (get(key) == null) {
