@@ -32,6 +32,22 @@ public class MapsTokenService extends Binder {
             return super.onTransact(code, data, reply, flags);
         }
         data.enforceInterface(DESCRIPTOR);
+        Bundle out;
+        try {
+            out = handle(data);
+        } catch (Throwable t) {
+            // In-process, nothing turns a throw into a Parcel exception for the caller.
+            Log.e(TAG, "Maps: token service failed: " + t);
+            out = new Bundle();
+            out.putShort("ERROR_CODE", (short) 5);
+        }
+        reply.writeNoException();
+        reply.writeInt(1);
+        out.writeToParcel(reply, 0);
+        return true;
+    }
+
+    private Bundle handle(Parcel data) {
         final Bundle request = data.readInt() != 0 ? Bundle.CREATOR.createFromParcel(data) : null;
         final String requestedPackage = request == null ? null : request.getString("PACKAGE_NAME");
         final String apiKey = request == null ? null : request.getString("API_KEY");
@@ -65,9 +81,6 @@ public class MapsTokenService extends Binder {
             out.putShort("ERROR_CODE", errorCode);
             Log.i(TAG, "Maps: token request refused, ERROR_CODE " + errorCode);
         }
-        reply.writeNoException();
-        reply.writeInt(1);
-        out.writeToParcel(reply, 0);
-        return true;
+        return out;
     }
 }

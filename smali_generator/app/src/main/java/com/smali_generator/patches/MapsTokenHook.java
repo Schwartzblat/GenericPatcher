@@ -32,8 +32,13 @@ public class MapsTokenHook implements Hook {
                     || !TOKEN_SERVICE.equals(component.getClassName())) {
                 return BindServiceHook.Decision.PASS;
             }
-            BindServiceHook.deliver(conn, executor, component,
-                    new MapsTokenService(thiz.getPackageName()));
+            // Not thiz.getPackageName(): a package context made by Play services code
+            // would report com.google.android.gms.
+            String own = AppCert.packageName();
+            if (own == null) {
+                return BindServiceHook.Decision.PASS;
+            }
+            BindServiceHook.deliver(conn, executor, component, new MapsTokenService(own));
             Log.i(TAG, "Maps: answering the token service in-process");
             return BindServiceHook.Decision.FAKE;
         }

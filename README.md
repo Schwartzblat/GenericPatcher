@@ -56,9 +56,9 @@ named inside the SDKs it finds, which catches endpoints no static list knows.
 
 **Google Maps keeps working re-signed.** The Maps SDK asks Play services for an
 API token, and Play services vouches for the app with its re-signed certificate,
-which Google refuses. The patch answers that bind itself, in-process, and fetches
+which Google refuses for API keys tied to the original certificate. The patch answers that bind itself, in-process, and fetches
 the token with the original certificate; `X-Android-Cert` headers carry it too.
-`--no-original-cert` turns this off.
+`--no-original-cert` (a desktop flag) turns this off; the store always applies it.
 
 ## Bundle and golden tools
 
@@ -100,6 +100,9 @@ Limits worth knowing before you start:
   Maps key is not tied to the original certificate loses a map that worked re-signed
   until a new bundle ships. Only the Play services Maps SDK is covered, and the
   header swap reaches only the platform `HttpURLConnection` (not OkHttp, Cronet or gRPC).
+  The client header is rebuilt from the request's `CLIENT_TYPE`, so it may differ from
+  what Play services would send, and every patched app that uses Maps sends Play
+  services' API key from its own process.
 
 ```bash
 adb logcat -s PATCH ArtHooks     # every decision, one line each

@@ -20,6 +20,7 @@ public final class AppCert {
     private static String original;
     private static String installed;
     private static boolean active;
+    private static String packageName;
 
     private AppCert() {}
 
@@ -28,6 +29,7 @@ public final class AppCert {
         original = null;
         installed = null;
         active = false;
+        packageName = context.getPackageName();
         String reason = null;
         String o = Artifacts.get("ORIGINAL_CERT_SHA1");
         if (CertSha1.isSha1Hex(o)) {
@@ -63,6 +65,11 @@ public final class AppCert {
 
     public static synchronized String installed() {
         return installed;
+    }
+
+    /** The app's own package, as read from the provider's context in init. */
+    public static synchronized String packageName() {
+        return packageName;
     }
 
     public static synchronized boolean active() {
