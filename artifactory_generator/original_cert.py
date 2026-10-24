@@ -22,15 +22,19 @@ def original_cert_sha1(path):
         with open(path, 'rb') as f:
             data = f.read()
         with zipfile.ZipFile(io.BytesIO(data)) as z:
-            names = sorted((n for n in z.namelist() if n.lower().endswith('.apk')), key=lambda n: (n != 'base.apk', n))
-            apks = [z.read(n) for n in names] if names else [data]
-        for apk_bytes in apks:
-            certs = _certificates(apk_bytes)
-            if certs:
-                distinct = set(certs)
-                if len(distinct) != 1:
-                    return None
-                return hashlib.sha1(distinct.pop()).hexdigest().upper()
+            names = z.namelist()
+            inner = sorted((n for n in names if n.lower().endswith('.apk')), key=lambda n: (n != 'base.apk', n))
+            if 'AndroidManifest.xml' in names or not inner:
+                apks = iter([data])
+            else:
+                apks = (z.read(n) for n in inner)
+            for apk_bytes in apks:
+                certs = _certificates(apk_bytes)
+                if certs:
+                    distinct = set(certs)
+                    if len(distinct) != 1:
+                        return None
+                    return hashlib.sha1(distinct.pop()).hexdigest().upper()
     except Exception:
         return None
     return None

@@ -37,12 +37,22 @@ def test_unsigned_or_missing_gives_none(tmp_path):
 @pytest.mark.parametrize('suffix', ['xapk', 'apkm'])
 def test_reads_inside_an_xapk_whatever_the_entry_order(tmp_path, suffix):
     apk = (FIXTURES / 'signed.apk').read_bytes()
+    other = (FIXTURES / 'signed-twice.apk').read_bytes()
     bundle = tmp_path / f'app.{suffix}'
     with zipfile.ZipFile(bundle, 'w') as z:
         z.writestr('manifest.json', '{}')
-        z.writestr('config.en.apk', apk)
+        z.writestr('config.en.apk', other)
         z.writestr('base.apk', apk)
     assert original_cert_sha1(str(bundle)) == FIXTURE_SHA1
+
+
+@pytest.mark.parametrize('inner', ['signed-twice.apk', 'signed.apk'])
+def test_an_apk_with_an_embedded_apk_is_judged_by_its_own_signer(tmp_path, inner):
+    apk = tmp_path / 'outer.apk'
+    with zipfile.ZipFile(apk, 'w') as z:
+        z.writestr('AndroidManifest.xml', 'manifest')
+        z.writestr('assets/inner.apk', (FIXTURES / inner).read_bytes())
+    assert original_cert_sha1(str(apk)) is None
 
 
 @pytest.mark.skipif(not os.path.exists(MOOVIT_BASE), reason='Moovit corpus APK is absent')
