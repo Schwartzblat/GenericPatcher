@@ -12,6 +12,7 @@ import androidx.annotation.NonNull;
 import com.arthooks.ArtHooks;
 import com.smali_generator.patches.AdActivityHook;
 import com.smali_generator.patches.BindServiceHook;
+import com.smali_generator.patches.CertHeaderHook;
 import com.smali_generator.patches.GmaHook;
 import com.smali_generator.patches.GmaPlayServicesHook;
 import com.smali_generator.patches.IapHook;
@@ -19,6 +20,7 @@ import com.smali_generator.patches.NetworkAdBlockHook;
 import com.smali_generator.patches.UnityAdsHook;
 import com.smali_generator.patches.WebViewAdBlockHook;
 import com.smali_generator.utils.AdRules;
+import com.smali_generator.utils.AppCert;
 import com.smali_generator.utils.Artifacts;
 import com.smali_generator.utils.IapRules;
 
@@ -44,6 +46,7 @@ public class InitProviderGeneric extends ContentProvider {
     static Hook[] hooks = {
             new BindServiceHook(),     // owns bindService; ad hooks register handlers
             new NetworkAdBlockHook(),  // DNS + URL: ad hosts, and anything ad SDK code requests
+            new CertHeaderHook(),      // X-Android-Cert carries the original certificate
             new WebViewAdBlockHook(),  // the same inside WebViews, which resolve names natively
             new AdActivityHook(),      // backstop: closes an ad SDK's full-screen activity
             new GmaHook(),             // Google Mobile Ads loads fail at once with "no fill"
@@ -66,6 +69,7 @@ public class InitProviderGeneric extends ContentProvider {
             return;
         }
         Artifacts.init(context);
+        AppCert.init(context);
         if (!AdRules.load()) {
             // Still install the hooks: the host, URL and caller rules are off without
             // rules, and the SDK hooks gate themselves (on with no artifacts at all,
