@@ -41,6 +41,7 @@ only `config.armeabi_v7a.apk` needs `--arch armeabi-v7a`, or no hook loads.
 | `--allow-host H` | Never block this host — the app needs it. |
 | `--block-host H` | Block this host as well. |
 | `--iap` | Also make Google Play in-app purchases succeed, offline. |
+| `--no-original-cert` | Leave the re-signed certificate in Google API requests: no Maps token fix, no X-Android-Cert swap. |
 
 ## How it works
 

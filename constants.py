@@ -12,3 +12,7 @@ PAYWALL_PROVIDER = 'com.paywall.InitProviderPaywallGeneric'
 # Where Stitch writes the finders' results in the patched APK. The module reads
 # them back at runtime through Artifacts (assets/patcher/artifactory.json).
 ARTIFACTS_ASSET = 'assets/patcher/artifactory.json'
+
+# The SHA-1 of the APK's original signing certificate, written into the
+# artifacts so the module can present it to Google APIs after re-signing.
+ORIGINAL_CERT_KEY = 'ORIGINAL_CERT_SHA1'
