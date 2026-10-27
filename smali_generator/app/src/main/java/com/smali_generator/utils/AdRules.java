@@ -4,6 +4,7 @@ import android.content.Context;
 import android.util.Log;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
@@ -13,8 +14,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * Decides what is ad code and what is ad traffic. Every hook asks here.
  *
  * The lists are not written in this file: artifactory_generator/ad_inventory.py
- * fills them in at patch time from ad_catalog.py, plus the hosts it harvested
- * from this APK's own ad SDK classes. Two kinds of rule:
+ * builds them from ad_catalog.py, plus the hosts it harvested from the APK's own
+ * ad SDK classes, and they reach the app as assets/patcher/artifactory.json.
+ * load() reads them from there at startup, so one prebuilt module serves every
+ * app. Two kinds of rule:
  *
  *   host rules  - a curated suffix (blocks the host and its subdomains), a
  *                 harvested host (exact), or a host + path prefix. A protected
@@ -29,15 +32,18 @@ public final class AdRules {
 
     private static final String TAG = "PATCH";
 
-    public static final String SDKS_PRESENT = "{{AD_SDKS_PRESENT}}";
-    private static final boolean CALLER_BLOCK = Boolean.parseBoolean("{{AD_CALLER_BLOCK}}");
+    private static final String[] NONE = new String[0];
 
-    private static final String[] AD_PACKAGES = split("{{AD_SDK_PACKAGES}}");
-    private static final String[] APP_FRAME_PACKAGES = split("{{AD_APP_FRAME_PACKAGES}}");
-    private static final String[] BLOCK_SUFFIXES = split("{{AD_HOST_SUFFIXES}}");
-    private static final Set<String> HARVESTED = new HashSet<>(Arrays.asList(split("{{AD_HOSTS_HARVESTED}}")));
-    private static final String[] PROTECTED_SUFFIXES = split("{{AD_PROTECTED_SUFFIXES}}");
-    private static final String[] URL_RULES = split("{{AD_URL_RULES}}");
+    // Each load() replaces every field, one volatile write each. A hook racing the
+    // load sees the old or the new list, never a half-built one.
+    private static volatile String sdksPresent = "";
+    private static volatile boolean callerBlock = false;
+    private static volatile String[] adPackages = NONE;
+    private static volatile String[] appFramePackages = NONE;
+    private static volatile String[] blockSuffixes = NONE;
+    private static volatile Set<String> harvested = Collections.emptySet();
+    private static volatile String[] protectedSuffixes = NONE;
+    private static volatile String[] urlRules = NONE;
 
     // Never the initiator of a request: the platform, HTTP stacks, and this patch.
     private static final String[] PASS_THROUGH_PACKAGES = {
@@ -55,22 +61,59 @@ public final class AdRules {
     }
 
     private static String[] split(String joined) {
-        if (joined.isEmpty()) {
-            return new String[0];
+        if (joined == null || joined.isEmpty()) {
+            return NONE;
         }
         return joined.split(",");
     }
 
+    /**
+     * Reads the rules from {@link Artifacts}, replacing any earlier ones. A missing
+     * key is an empty list. Returns false when no curated host suffix was loaded,
+     * i.e. there are no rules at all. Does not log (Log is absent in JVM tests);
+     * the caller reports it.
+     */
+    public static boolean load() {
+        String[] suffixes = split(Artifacts.get("AD_HOST_SUFFIXES"));
+        String present = Artifacts.get("AD_SDKS_PRESENT");
+        adPackages = split(Artifacts.get("AD_SDK_PACKAGES"));
+        appFramePackages = split(Artifacts.get("AD_APP_FRAME_PACKAGES"));
+        harvested = new HashSet<>(Arrays.asList(split(Artifacts.get("AD_HOSTS_HARVESTED"))));
+        protectedSuffixes = split(Artifacts.get("AD_PROTECTED_SUFFIXES"));
+        urlRules = split(Artifacts.get("AD_URL_RULES"));
+        sdksPresent = present == null ? "" : present;
+        callerBlock = "true".equals(Artifacts.get("AD_CALLER_BLOCK"));
+        blockSuffixes = suffixes;
+        return suffixes.length > 0;
+    }
+
+    /**
+     * Whether the glue hooks that reach into ad SDK classes apply. True when
+     * the artifacts carry an ad layer, i.e. the finder wrote AD_HOST_SUFFIXES
+     * (it does for every app with ad code, ad-free ones included), and when
+     * there are no artifacts at all: a missing or corrupt artifactory.json
+     * says nothing about what was chosen, so the SDK hooks keep blocking as
+     * they did before purchases. A purchases-only build has artifacts but no
+     * ad layer, and the glue hooks stay off.
+     */
+    public static boolean layerEnabled() {
+        return Artifacts.get("AD_HOST_SUFFIXES") != null || Artifacts.isEmpty();
+    }
+
+    public static String sdksPresent() {
+        return sdksPresent;
+    }
+
     public static int harvestedCount() {
-        return HARVESTED.size();
+        return harvested.size();
     }
 
     public static int curatedCount() {
-        return BLOCK_SUFFIXES.length;
+        return blockSuffixes.length;
     }
 
     public static boolean callerBlockEnabled() {
-        return CALLER_BLOCK;
+        return callerBlock;
     }
 
     /** Logs a message the first time its key is seen, so a retry loop cannot flood logcat. */
@@ -113,7 +156,7 @@ public final class AdRules {
 
     /** True for a class of an ad SDK. Never for the app's own classes, even if its package overlaps one. */
     public static boolean isAdClass(String className) {
-        if (className == null || !startsWithAny(className, AD_PACKAGES)) {
+        if (className == null || !startsWithAny(className, adPackages)) {
             return false;
         }
         String pkg = appPackage();
@@ -129,10 +172,10 @@ public final class AdRules {
         if (host.endsWith(".")) {
             host = host.substring(0, host.length() - 1);
         }
-        if (hasSuffix(host, BLOCK_SUFFIXES)) {
+        if (hasSuffix(host, blockSuffixes)) {
             return "ad host";
         }
-        if (HARVESTED.contains(host) && !hasSuffix(host, PROTECTED_SUFFIXES)) {
+        if (harvested.contains(host) && !hasSuffix(host, protectedSuffixes)) {
             return "harvested";
         }
         return null;
@@ -145,7 +188,7 @@ public final class AdRules {
             return rule;
         }
         String hostPath = host.toLowerCase(Locale.ROOT) + path;
-        for (String prefix : URL_RULES) {
+        for (String prefix : urlRules) {
             if (hostPath.startsWith(prefix)) {
                 return "ad path";
             }
@@ -159,7 +202,7 @@ public final class AdRules {
      * that are not hot.
      */
     public static String adInitiator() {
-        if (!CALLER_BLOCK) {
+        if (!callerBlock) {
             return null;
         }
         String pkg = appPackage();
@@ -171,7 +214,7 @@ public final class AdRules {
             if (isAdClass(cls)) {
                 return cls;
             }
-            if ((pkg != null && cls.startsWith(pkg)) || startsWithAny(cls, APP_FRAME_PACKAGES)) {
+            if ((pkg != null && cls.startsWith(pkg)) || startsWithAny(cls, appFramePackages)) {
                 return null;
             }
             // Anything else (an obfuscated library, or obfuscated app code) says

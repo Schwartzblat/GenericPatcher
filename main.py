@@ -8,14 +8,8 @@ from stitch.common import ExternalModule
 # artifactory_list below. What they block is configured in ad_catalog.py.
 from artifactory_generator.ad_inventory import AdInventoryFinder
 from artifactory_generator.iap_inventory import IapInventoryFinder
-
-# Stitch writes this into the target's manifest as the provider's android:name.
-# It must match the class in smali_generator/app/src/main/java/com/smali_generator/.
-PROVIDER_CLASS = 'com.smali_generator.InitProviderGeneric'
-
-# The paywall module generates a class of this name from PAYWALL_PROVIDER_CLASS,
-# and stitch names it in the manifest.
-PAYWALL_PROVIDER = 'com.paywall.InitProviderPaywallGeneric'
+from artifactory_generator.original_cert import original_cert_sha1
+from constants import ARTIFACTS_ASSET, MODULE_PROVIDER, ORIGINAL_CERT_KEY, PAYWALL_PROVIDER
 
 
 def get_args():
@@ -40,6 +34,9 @@ def get_args():
                         help='Block by host only, not every request that ad SDK code makes')
     parser.add_argument('--iap', dest='iap', action='store_true', default=False,
                         help='Also make Google Play in-app purchases succeed, offline (see README)')
+    parser.add_argument('--no-original-cert', dest='original_cert', action='store_false', default=True,
+                        help='Leave the re-signed certificate in Google API requests: '
+                             'no Maps token fix, no X-Android-Cert swap')
     parser.add_argument('--extra-artifacts', dest='extra_artifacts',
                         help='Extra artifacts for the artifactory, in the format "key:value"',
                         required=False, default=[], nargs='+')
@@ -52,8 +49,15 @@ def get_args():
 def main():
     args = get_args()
     extra_artifacts = {artifact.split(':', 1)[0]: artifact.split(':', 1)[1] for artifact in args.extra_artifacts}
+    if args.original_cert and ORIGINAL_CERT_KEY not in extra_artifacts:
+        cert = original_cert_sha1(args.apk_path)
+        if cert:
+            extra_artifacts[ORIGINAL_CERT_KEY] = cert
+            print(f'original certificate SHA-1: {cert}')
+        else:
+            print('original certificate not readable: Google API fix off')
     external_modules = [
-        ExternalModule(Path(__file__).parent / './smali_generator', PROVIDER_CLASS)
+        ExternalModule(Path(__file__).parent / './smali_generator', MODULE_PROVIDER)
     ]
     if args.paywall is not None:
         extra_artifacts.setdefault('PAYWALL_PROVIDER_CLASS', PAYWALL_PROVIDER.rsplit('.', 1)[1])
@@ -71,6 +75,7 @@ def main():
             arch=args.arch,
             should_sign=args.should_sign,
             extra_artifacts=extra_artifacts,
+            artifacts_asset=ARTIFACTS_ASSET,
     ) as stitch:
         stitch.patch()
 

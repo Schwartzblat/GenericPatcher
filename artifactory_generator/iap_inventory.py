@@ -158,12 +158,16 @@ class IapInventoryFinder(SimpleArtifactoryFinder):
         scan = bool(present) or self.enabled
         proxy, verifier = self._scan_for_targets(roots) if scan else (None, None)
 
-        artifacts['IAP_ENABLED'] = 'true' if self.enabled else 'false'
+        self.is_found = True
+        if not self.enabled:
+            print('[*] IapInventory: layer off (pass --iap); emitting no IAP_* key')
+            return
+
+        artifacts['IAP_ENABLED'] = 'true'
         artifacts['IAP_CLIENTS_PRESENT'] = ', '.join(name for name, _ in present)
         artifacts['IAP_VERIFIER_CLASS_NAME'] = verifier[0] if verifier else ''
         artifacts['IAP_VERIFIER_METHOD_NAME'] = verifier[1] if verifier else ''
         artifacts['IAP_VERIFIER_METHOD_SIG'] = verifier[2] if verifier else ''
-        self.is_found = True
 
         print(f'[+] IapInventory: {len(present)} billing client(s) in the APK'
               + ('' if self.enabled else ', layer disabled (pass --iap to enable)'))

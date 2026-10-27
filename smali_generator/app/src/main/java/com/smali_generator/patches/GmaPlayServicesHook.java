@@ -7,6 +7,7 @@ import android.util.Log;
 
 import com.arthooks.ArtHooks;
 import com.smali_generator.Hook;
+import com.smali_generator.utils.AdRules;
 
 import java.lang.reflect.Method;
 import java.util.concurrent.Executor;
@@ -31,7 +32,7 @@ import java.util.concurrent.Executor;
  *     NetworkAdBlockHook fails it and GMA reports the failure to the app.
  *
  * The bindService hooks themselves live in BindServiceHook, which owns those
- * three methods because the IAP layer needs them too; this hook contributes the
+ * three methods; this hook contributes the
  * decision for GMA's service actions as a handler.
  *
  * Both class names and intent actions are a contract between two separately
@@ -88,6 +89,10 @@ public class GmaPlayServicesHook implements Hook {
     }
 
     public void load() {
+        if (!AdRules.layerEnabled()) {
+            Log.i(TAG, "GmaPlayServices: ad artifacts absent, glue off");
+            return;
+        }
         try {
             hook(ClassLoader.class.getDeclaredMethod("loadClass", String.class), "load_class", Object.class, String.class);
         } catch (Throwable t) {

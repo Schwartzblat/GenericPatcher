@@ -26,31 +26,18 @@ android {
             minifyEnabled false
         }
     }
-
-    lint {
-        // Required, not a preference. Before stitch substitutes the artifactory,
-        // Class.forName() in the patches is still holding an artifactory
-        // placeholder rather than a class name. AGP's lintVital task runs as
-        // part of assembleRelease, and PrivateApiDetector tries to parse that
-        // string as a Java type and crashes the build with "Incorrect type".
-        // Linting a tree of unsubstituted placeholders is meaningless anyway.
-        //
-        // (Deliberately not spelling a placeholder out here: validate-artifactory.py
-        // scans every file under smali_generator/, this one included, and would
-        // report the example as a real unsubstituted key.)
-        checkReleaseBuilds false
-        abortOnError false
-    }
 }
 
 dependencies {
     implementation libs.arthooks
     implementation libs.androidx.annotation.jvm
 
-    // JVM unit tests for the pure-Java parts of the patch (the wire format and
-    // the purchase ledger). Parcel and Bundle do not exist off-device, so the
-    // binder itself is verified by the device run, not here.
+    // JVM unit tests for the pure-Java parts of the patch: Artifacts (the JSON
+    // reader) and AdRules (the lists it feeds). Parcel, Bundle and Log do not
+    // exist off-device, so anything touching them is verified by the device run,
+    // not here. android.jar's org.json is a stub there too, hence libs.json.
     testImplementation libs.junit
+    testImplementation libs.json
 }
 
 // Copies the built APK to <module>/smali_generator.apk, where stitch's

@@ -22,8 +22,7 @@ import java.util.concurrent.Executor;
 
 /**
  * Owns the bindService hooks, because ArtHooks installs one replacement per
- * method and two layers need these three overloads: the ad layer refuses Play
- * services' ad requests, and the IAP layer answers the Play billing bind itself.
+ * method: several hooks can each register a handler to decide a bind.
  *
  * Handlers are asked in registration order and the first non-PASS decision wins:
  *

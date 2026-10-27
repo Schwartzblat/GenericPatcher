@@ -1,9 +1,8 @@
 # GenericPatcher
 
-Patches **any** Android app to remove its ads, and with `--iap` to make its
-Google Play in-app purchases succeed with no network and no Play Store. No
-per-app reversing, and no obfuscated name is ever written down: everything the
-patch needs is discovered in the APK at patch time.
+Patches **any** Android app to remove its ads. No per-app reversing, and no
+obfuscated name is ever written down: everything the patch needs is discovered
+in the APK at patch time.
 
 It injects a hook module built with
 [stitch](https://github.com/Schwartzblat/Stitch) and
@@ -17,15 +16,19 @@ Needs Python 3.11+, JDK 17+ and an Android SDK.
 
 ```bash
 python3 -m venv .venv
+# Stitch 1.6 is not on PyPI: install it from the monorepo's utils/Stitch
+.venv/bin/pip install -e ../../utils/Stitch
 .venv/bin/pip install -r requirements.txt
 
-# ads only
+# an APK in, a signed APK out
 .venv/bin/python main.py -p ./game.apk -o ./game-patched.apk
 
-# ads + free in-app purchases
-.venv/bin/python main.py --iap -p ./game.xapk -o ./game-patched.xapk
+# purchases: Google Play billing succeeds offline
+.venv/bin/python main.py -p ./game.apk -o ./game-patched.apk --iap
 
 # a bundle in gives a zip of signed splits out
+.venv/bin/python main.py -p ./game.xapk -o ./game-patched.xapk
+
 unzip -o game-patched.xapk -d out && adb install-multiple out/*.apk
 ```
 
@@ -34,10 +37,11 @@ only `config.armeabi_v7a.apk` needs `--arch armeabi-v7a`, or no hook loads.
 
 | Flag | Meaning |
 |---|---|
-| `--iap` | Free the in-app purchases too. Off by default. |
 | `--arch` | ABI whose `libarthooks.so` is injected. Default `arm64-v8a`. |
 | `--allow-host H` | Never block this host — the app needs it. |
 | `--block-host H` | Block this host as well. |
+| `--iap` | Also make Google Play in-app purchases succeed, offline. |
+| `--no-original-cert` | Leave the re-signed certificate in Google API requests: no Maps token fix, no X-Android-Cert swap. |
 
 ## How it works
 
@@ -50,37 +54,66 @@ What counts as an ad lives in one data file,
 hosts that are never blocked. At patch time the finder also *harvests* the hosts
 named inside the SDKs it finds, which catches endpoints no static list knows.
 
-**Purchases are answered in-process.** Every IAP client reaches the store the
-same way: it binds `com.android.vending.billing.InAppBillingService.BIND` and
-speaks the `IInAppBillingService` AIDL. The patch answers that bind with its own
-local service, so the Play Store is never contacted. The protocol is a contract
-between two separately shipped APKs, so its action, descriptor and Bundle keys
-cannot be obfuscated — which is why one choke point covers the Play Billing
-Library, Unity IAP and the rest, whatever R8 renamed their classes to. Nothing
-is owned at launch; a purchase is granted when the player taps Buy and then
-persists.
+**Google Maps keeps working re-signed.** The Maps SDK asks Play services for an
+API token, and Play services vouches for the app with its re-signed certificate,
+which Google refuses for API keys tied to the original certificate. The patch
+answers that bind itself, in-process, and fetches the token with the original
+certificate; `X-Android-Cert` headers carry it too. `--no-original-cert` (a
+desktop flag) turns this off. On the phone the fix applies with a store whose
+engine writes the original certificate (store builds from this release on);
+older stores and today's live store write no key, so the fix stays off there.
+
+## Bundle and golden tools
+
+- `bundle.py` builds the signed generic bundle the store applies on the phone:
+  this module, PatchPaywall and `catalog.json` (the ad catalog). Pass
+  `--signing-key` (EC P-256 PEM) and `--paywall` (the PatchPaywall checkout).
+  With `--upload` it also sends the bundle to the patch server, reading
+  `PATCH_SERVER_URL` and `BUNDLE_UPLOAD_SECRET` from the environment.
+- `golden.py` records the desktop finder's `AD_*` output for one APK, and with
+  `--iap` its `IAP_*` keys too, so the phone's port of the finder can be checked
+  against it.
 
 ## Status
 
 Ads: verified on an emulator against real Google test ads, and on a phone
 against shipping apps from the Play Store.
 
-Purchases: verified end to end with the network off — tap Buy, no Play dialog,
-the goods credited. How far a given app gets varies with the three limits
-below.
+Purchases (`--iap`): verified on an emulator running Defender II 1.4.9, a
+shipping 2013-era game, across four runs: the bind, sku-details and buy flows
+served on its three SKUs, receipts were minted and persisted in the ledger,
+`getPurchases` kept them owned across restarts, and re-buying an owned SKU got
+the real store's `Item Already Owned` answer. Per-app limits: Defender II's
+coin/crystal counters did not credit, because that game grants entitlements
+only after confirming on its own developer server, a response the patch's
+minted receipts can never satisfy. So: the billing-layer contract works on
+shipping apps, and each app's economy then depends on how it trusts the
+store's response.
 
-Three limits worth knowing before you start:
+Google APIs after re-signing: verified on a Pixel 9a (Android 17) with Moovit
+5.201.6.1811 patched by the store at 1.2.0. Before, its Stations map stayed
+blank with `Authorization failure`. After, with the Maps token cache cleared,
+the Maps SDK asked the in-app token service, the token came back from Google,
+and the map drew. Search suggestions loaded with the original certificate
+swapped into `X-Android-Cert` on `maps.googleapis.com` and Firebase Remote
+Config.
 
-- **A game that validates receipts on its own server is not fooled.** Its shop
-  opens and the purchase completes, but the goods are granted by the
-  publisher's own backend once Google confirms the receipt, so nothing is
-  credited — and a game built that way often refuses to start a purchase at
-  all with the network off. This is the usual reason a patched app still shows
-  no coins.
-- **A product can be bought once**, as with the real store, so a game that
-  never consumes its purchases cannot re-buy them.
+Limits worth knowing before you start:
+
 - **An app with Play's anti-tamper protection (PairIP) will not run re-signed**
   — patched or not. Check that the untouched APK runs before blaming the patch.
+- **Purchases grant what the store answers, not what the app's counters do.**
+  An app that re-confirms with its own server before crediting an entitlement
+  never sees the patch's minted receipts as valid, so the store layer works
+  while the app's counters stay put (Defender II does exactly this).
+- **The Maps token fix is the patch's call, not Play services'.** It always
+  answers the token request, so if Google changes the token service, an app whose
+  Maps key is not tied to the original certificate loses a map that worked re-signed
+  until a new bundle ships. Only the Play services Maps SDK is covered, and the
+  header swap reaches only the platform `HttpURLConnection` (not OkHttp, Cronet or gRPC).
+  The client header is rebuilt from the request's `CLIENT_TYPE`, so it may differ from
+  what Play services would send, and every patched app that uses Maps sends Play
+  services' API key from its own process.
 
 ```bash
 adb logcat -s PATCH ArtHooks     # every decision, one line each

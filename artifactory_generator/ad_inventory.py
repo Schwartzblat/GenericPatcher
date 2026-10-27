@@ -8,7 +8,8 @@ the endpoints they use. So this finder:
   2. harvests the hosts of every URL literal (and bare hostname literal) in those
      SDKs' classes, so an endpoint added in a new SDK release is blocked without
      a catalog update;
-  3. hands the result, with the catalog's curated lists, to AdRules.java.
+  3. hands the result, with the catalog's curated lists, to AdRules.java through
+     assets/patcher/artifactory.json (no size limit, unlike a compiled string).
 
 It always fires, with empty values when an app has no ads at all, so the gate
 and the patch behave the same for every APK.
@@ -33,9 +34,6 @@ HOSTNAME_RE = re.compile(r'^(?=.{4,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?
 IPV4_RE = re.compile(r'^\d+(?:\.\d+){3}$')
 # A bare literal starting like a Java package is a class or package name, not a host.
 PACKAGE_ROOTS = frozenset(('com', 'org', 'net', 'io', 'android', 'androidx', 'java', 'javax', 'kotlin', 'dalvik'))
-
-# One Java string literal holds at most 65535 bytes. Stay well under it.
-MAX_HARVEST_CHARS = 48000
 
 
 def _matches_suffix(host: str, suffixes) -> bool:
@@ -114,9 +112,6 @@ class AdInventoryFinder(SimpleArtifactoryFinder):
 
         hosts = sorted(harvested)
         joined = ','.join(hosts)
-        if len(joined) > MAX_HARVEST_CHARS:
-            print(f'[!] AdInventory: {len(hosts)} harvested hosts exceed {MAX_HARVEST_CHARS} chars, truncating')
-            joined = joined[:MAX_HARVEST_CHARS].rsplit(',', 1)[0]
 
         artifacts['AD_SDKS_PRESENT'] = ', '.join(name for name, _ in present)
         artifacts['AD_SDK_PACKAGES'] = ','.join(p for sdk in SDKS for p in sdk.packages)

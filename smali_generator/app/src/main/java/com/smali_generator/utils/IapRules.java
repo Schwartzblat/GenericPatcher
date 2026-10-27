@@ -7,26 +7,57 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * What the patch knows about this app's billing, filled in at patch time by
- * artifactory_generator/iap_inventory.py.
+ * What the patch knows about this app's billing: whether the purchase layer is
+ * on, which client strings the APK showed, and which verifier it ships.
  *
  * Also remembers the receipts this patch minted, which is how the signature
  * bypass stays narrow: a verification is let through only when the bytes being
  * checked are one of ours, so the app's own signature checks are untouched.
+ *
+ * The values are not written in this file: artifactory_generator/
+ * iap_inventory.py finds the verifier in the APK and iap_catalog.py decides the
+ * rest, and they reach the app as assets/patcher/artifactory.json. load()
+ * reads them from there at startup, so one prebuilt module serves every app.
  */
 public final class IapRules {
 
-    public static final boolean ENABLED = Boolean.parseBoolean("{{IAP_ENABLED}}");
-    public static final String CLIENTS_PRESENT = "{{IAP_CLIENTS_PRESENT}}";
-    public static final String VERIFIER_CLASS = "{{IAP_VERIFIER_CLASS_NAME}}";
-    public static final String VERIFIER_METHOD = "{{IAP_VERIFIER_METHOD_NAME}}";
-    public static final String VERIFIER_SIG = "{{IAP_VERIFIER_METHOD_SIG}}";
+    // Each load() replaces every field, one volatile write each. A hook racing
+    // the load sees the old or the new value, never a half-filled one.
+    public static volatile boolean ENABLED = false;
+    public static volatile String CLIENTS_PRESENT = "";
+    public static volatile String VERIFIER_CLASS = "";
+    public static volatile String VERIFIER_METHOD = "";
+    public static volatile String VERIFIER_SIG = "";
 
     private static final int MAX_REMEMBERED = 256;
+
+    // The only difference acknowledge writes between a receipt's two spellings.
+    private static final String ACKNOWLEDGED_TRUE = "\"acknowledged\":true";
+    private static final String ACKNOWLEDGED_FALSE = "\"acknowledged\":false";
+
     private static final Set<String> minted =
             Collections.synchronizedSet(new LinkedHashSet<String>());
 
     private IapRules() {
+    }
+
+    /**
+     * Reads the rules from {@link Artifacts}, replacing any earlier ones —
+     * the same file/live pattern as {@link AdRules#load()}. A missing key is
+     * an empty string, and only the exact string "true" turns the layer on.
+     * Returns {@link #ENABLED}.
+     */
+    public static boolean load() {
+        String clientsPresent = Artifacts.get("IAP_CLIENTS_PRESENT");
+        String verifierClass = Artifacts.get("IAP_VERIFIER_CLASS_NAME");
+        String verifierMethod = Artifacts.get("IAP_VERIFIER_METHOD_NAME");
+        String verifierSig = Artifacts.get("IAP_VERIFIER_METHOD_SIG");
+        CLIENTS_PRESENT = clientsPresent == null ? "" : clientsPresent;
+        VERIFIER_CLASS = verifierClass == null ? "" : verifierClass;
+        VERIFIER_METHOD = verifierMethod == null ? "" : verifierMethod;
+        VERIFIER_SIG = verifierSig == null ? "" : verifierSig;
+        ENABLED = "true".equals(Artifacts.get("IAP_ENABLED"));
+        return ENABLED;
     }
 
     public static boolean hasVerifier() {
@@ -69,10 +100,44 @@ public final class IapRules {
         return count;
     }
 
+    /**
+     * Refills the remembered set from a persisted ledger's receipts. The set
+     * is memory-only and the ledger is not, so IapHook.load() replays the
+     * ledger through this at startup: an app that re-checks a saved receipt
+     * with java.security.Signature before its first getPurchases call then
+     * finds it known, after a restart as well as before one.
+     *
+     * Returns how many receipts were replayed, for the caller's log line.
+     */
+    public static int rememberReceipts(Iterable<String> receipts) {
+        if (receipts == null) {
+            return 0;
+        }
+        int count = 0;
+        for (String json : receipts) {
+            if (json != null) {
+                rememberReceipt(json);
+                count++;
+            }
+        }
+        return count;
+    }
+
     public static void rememberReceipt(String json) {
         if (json == null) {
             return;
         }
+        // Acknowledge rewrites the stored receipt's flag
+        // (PurchaseLedger#acknowledge) while the app keeps the copy it was
+        // handed at purchase time, so both spellings of a receipt we minted
+        // are ours. Replaying the ledger after a restart sees the rewritten
+        // one; the app's Signature check presents the saved one.
+        remember(json);
+        remember(json.replace(ACKNOWLEDGED_TRUE, ACKNOWLEDGED_FALSE));
+        remember(json.replace(ACKNOWLEDGED_FALSE, ACKNOWLEDGED_TRUE));
+    }
+
+    private static void remember(String json) {
         synchronized (minted) {
             // Evict the oldest. next() before remove(): an iterator with no
             // preceding next() throws IllegalStateException, which would kill

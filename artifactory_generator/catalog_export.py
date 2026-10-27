@@ -1,0 +1,26 @@
+from artifactory_generator import ad_inventory
+from artifactory_generator.ad_catalog import APP_FRAME_PACKAGES, PROTECTED_HOSTS, SDKS, URL_RULES, HARVEST_BARE_TLDS
+from artifactory_generator.iap_catalog import IAP_CLIENTS, VERIFIER_ANCHORS
+
+# Bump whenever the finder's matching rules change (the regexes, the package-to-class
+# rule): the phone's port mirrors that code, which catalog.json does not carry.
+CATALOG_FORMAT = 1
+
+
+def catalog_json() -> dict:
+    """The ad catalog as plain JSON, for the on-device patcher's Kotlin port of the finder.
+
+    The lists that are sets in Python are sorted so the bundle bytes do not depend on hash order."""
+    return {
+        'format': CATALOG_FORMAT,
+        'sdks': [{'name': sdk.name, 'packages': list(sdk.packages), 'hosts': list(sdk.hosts)} for sdk in SDKS],
+        'protected_hosts': list(PROTECTED_HOSTS),
+        'url_rules': [[host, path] for host, path in URL_RULES],
+        'app_frame_packages': list(APP_FRAME_PACKAGES),
+        'harvest_bare_tlds': sorted(HARVEST_BARE_TLDS),
+        'package_roots': sorted(ad_inventory.PACKAGE_ROOTS),
+        'iap': {
+            'verifier_anchors': list(VERIFIER_ANCHORS),
+            'clients': [{'name': client.name, 'packages': list(client.packages)} for client in IAP_CLIENTS],
+        },
+    }

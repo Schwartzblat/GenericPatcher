@@ -58,12 +58,6 @@ def test_every_key_is_filled_whatever_the_app_ships(stem):
 
 
 @needs_an_apk
-@pytest.mark.parametrize('stem', APKS)
-def test_disabling_the_layer_is_visible_to_the_hook(stem):
-    assert run_finder(stem, iap=False)['IAP_ENABLED'] == 'false'
-
-
-@needs_an_apk
 def test_an_app_without_billing_reports_empty_values():
     for stem in APKS:
         artifacts = run_finder(stem)

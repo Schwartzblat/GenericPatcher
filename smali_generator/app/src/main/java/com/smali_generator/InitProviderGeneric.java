@@ -1,6 +1,7 @@
 package com.smali_generator;
 
 import android.content.ContentProvider;
+import android.content.Context;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
@@ -11,13 +12,18 @@ import androidx.annotation.NonNull;
 import com.arthooks.ArtHooks;
 import com.smali_generator.patches.AdActivityHook;
 import com.smali_generator.patches.BindServiceHook;
+import com.smali_generator.patches.CertHeaderHook;
 import com.smali_generator.patches.GmaHook;
 import com.smali_generator.patches.GmaPlayServicesHook;
 import com.smali_generator.patches.IapHook;
+import com.smali_generator.patches.MapsTokenHook;
 import com.smali_generator.patches.NetworkAdBlockHook;
 import com.smali_generator.patches.UnityAdsHook;
 import com.smali_generator.patches.WebViewAdBlockHook;
 import com.smali_generator.utils.AdRules;
+import com.smali_generator.utils.AppCert;
+import com.smali_generator.utils.Artifacts;
+import com.smali_generator.utils.IapRules;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -39,14 +45,16 @@ public class InitProviderGeneric extends ContentProvider {
 
     // Register Hook implementations from patches/ here.
     static Hook[] hooks = {
-            new BindServiceHook(),     // owns bindService; the ad and IAP layers register handlers
+            new BindServiceHook(),     // owns bindService; ad hooks register handlers
             new NetworkAdBlockHook(),  // DNS + URL: ad hosts, and anything ad SDK code requests
+            new CertHeaderHook(),      // X-Android-Cert carries the original certificate
             new WebViewAdBlockHook(),  // the same inside WebViews, which resolve names natively
             new AdActivityHook(),      // backstop: closes an ad SDK's full-screen activity
             new GmaHook(),             // Google Mobile Ads loads fail at once with "no fill"
             new GmaPlayServicesHook(), // ...and may not have Play services fetch ads out of our process
             new UnityAdsHook(),        // Unity Ads never initialises (it would switch to Cronet)
-            new IapHook(),             // --iap: in-app purchases succeed offline, with no Play Store
+            new IapHook(),             // the fake Play billing bind, purchase screen and receipt checks
+            new MapsTokenHook(),       // the Maps SDK's token service answered with the original certificate
     };
 
     static final AtomicBoolean is_loaded = new AtomicBoolean(false);
@@ -54,16 +62,31 @@ public class InitProviderGeneric extends ContentProvider {
     @Override
     public boolean onCreate() {
         Log.i(TAG, "InitProviderGeneric: onCreate called");
-        on_load();
+        on_load(getContext());
         return true;
     }
 
-    public static void on_load() {
+    public static void on_load(Context context) {
         if (is_loaded.getAndSet(true)) {
             return;
         }
+        Artifacts.init(context);
+        try {
+            AppCert.init(context);
+        } catch (Throwable t) {
+            Log.e(TAG, "AppCert init failed: Google API fix off", t);
+        }
+        if (!AdRules.load()) {
+            // Still install the hooks: the host, URL and caller rules are off without
+            // rules, and the SDK hooks gate themselves (on with no artifacts at all,
+            // off in a purchases-only build), so the process does not crash before
+            // its Application.
+            Log.e(TAG, "No ad rules in assets/patcher/artifactory.json: host, URL and caller rules are off"
+                    + (AdRules.layerEnabled() ? " (SDK hooks still apply)" : " (SDK hooks are off too)"));
+        }
+        IapRules.load();
         Log.i(TAG, "Patch loaded! Ad SDKs at patch time: "
-                + (AdRules.SDKS_PRESENT.isEmpty() ? "none" : AdRules.SDKS_PRESENT)
+                + (AdRules.sdksPresent().isEmpty() ? "none" : AdRules.sdksPresent())
                 + "; " + AdRules.curatedCount() + " curated ad domains, " + AdRules.harvestedCount()
                 + " harvested hosts, caller rule " + (AdRules.callerBlockEnabled() ? "on" : "off"));
         try {

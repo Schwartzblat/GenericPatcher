@@ -10,6 +10,9 @@ venv/
 /artifactory.json
 output*.apk
 output_bundle_apks/
+bundle-*.zip
+.bundle-work/
+.golden-work/
 
 # inputs / outputs
 *.apk
